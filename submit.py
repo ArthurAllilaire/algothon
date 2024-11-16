@@ -6,6 +6,10 @@ from pathlib import Path
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import gdown
+import os
+from dotenv import load_dotenv
+
+load_dotenv() # Load environment variables from .env files - will share with you dylan
 
 # Load the encrypted file to df
 def load_encrypted() -> pd.DataFrame:
@@ -29,7 +33,7 @@ def load_encrypted() -> pd.DataFrame:
 
 def get_file_name_and_password():
     # Replace with your OAuth token
-    client = WebClient(token=slack_token)
+    client = WebClient(token=os.getenv("SLACK_API_TOKEN"))
 
     # Replace with the ID of the channel you want to fetch messages from
     channel_id = "C080P6M4DKL"
