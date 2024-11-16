@@ -1,4 +1,5 @@
 /venv
 /public_data
 secret.txt
-token.json
+credentials.json
+*.env
