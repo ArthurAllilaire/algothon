@@ -7,7 +7,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import os
 from dotenv import load_dotenv
-from drive import authenticate_google_drive, find_file_in_folder, download_file, FOLDER_ID
+from drive import authenticate_google_drive, find_file_in_folder, download_file_gdown, FOLDER_ID
 
 load_dotenv() # Load environment variables from .env files - will share with you dylan
 
@@ -25,13 +25,17 @@ def load_encrypted() -> pd.DataFrame:
     file_id = find_file_in_folder(service, FOLDER_ID, file_name)
     
     if file_id:
-        # Step 3: Download the file to memory if found
-        fh = download_file(service, file_id, path)
-
+        # Step 3: Download the file using gdown
+        download_file_gdown(file_id, path)
+    else:
+        raise FileNotFoundError(f"File {file_name} not found in folder {FOLDER_ID}.")
+    
+    # Step 4: Decrypt and load the data
     return crp.read_encrypted(path=path, password=password)
 
 def get_file_name_and_password():
     # Replace with your OAuth token
+    print(os.getenv("SLACK_API_TOKEN"))
     client = WebClient(token=os.getenv("SLACK_API_TOKEN"))
 
     # Replace with the ID of the channel you want to fetch messages from
@@ -58,3 +62,8 @@ def get_file_name_and_password():
     except SlackApiError as e:
         print(f"Error fetching messages: {e.response['error']}")
         return None, None
+
+
+if __name__ == "__main__":
+    df = load_encrypted()
+    print(df.head())

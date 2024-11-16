@@ -1,6 +1,7 @@
 /venv
 /public_data
-secret.txt
 credentials.json
-*.env
 token.json
+*.env
+
+__pycache__/

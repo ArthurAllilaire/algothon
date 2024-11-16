@@ -1,14 +1,16 @@
-import io
 import os
-import pandas as pd
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.http import MediaIoBaseDownload
 from google.auth.transport.requests import Request
-import io
 from google.oauth2.credentials import Credentials
 
 from googleapiclient.http import MediaIoBaseDownload
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 # Google Drive API authentication
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 FOLDER_ID = '1ElVOO_4Plr24xEOmdqsINmIRM_y4M3_n'
@@ -30,43 +32,71 @@ def authenticate_google_drive():
     return build('drive', 'v3', credentials=creds)
 
 def find_file_in_folder(service, folder_id, file_name):
-    """Search for a file by name inside a Google Drive folder."""
-    query = f"'{folder_id}' in parents and name = '{file_name}'"
+    """
+    Search for a file by name in a Google Drive folder (including shared files).
+
+    :param service: Authenticated Google Drive API service.
+    :param folder_id: ID of the folder to search in.
+    :param file_name: Name of the file to search for.
+    :return: ID of the file if found, None otherwise.
+    """
     try:
-        results = service.files().list(q=query).execute()
-        items = results.get('files', [])
+        query = f"'{folder_id}' in parents and name = '{file_name}' and trashed = false"
+        # Include files shared with the authenticated user
+        response = service.files().list(
+            q=query,
+            spaces='drive',
+            fields='files(id, name)',
+            supportsAllDrives=True,  # Include shared drives
+            includeItemsFromAllDrives=True
+        ).execute()
+        files = response.get('files', [])
         
-        if not items:
-            print(f'No file found with name {file_name} in folder {folder_id}.')
+        if not files:
+            print(f"File '{file_name}' not found in folder '{folder_id}'.")
             return None
-        else:
-            # There could be multiple files with the same name, but we’ll pick the first one
-            item = items[0]  # Assuming the file name is unique
-            file_id = item['id']
-            file_name = item['name']
-            print(f'Found file: {file_name} with ID: {file_id}')
-            return file_id
-    except Exception as e:
-        print(f"An error occurred while searching for the file: {e}")
+
+        print(f"File '{file_name}' found with ID: {files[0]['id']}")
+        return files[0]['id']
+    except HttpError as error:
+        print(f"An error occurred while searching for the file: {error}")
         return None
 
 
-def download_file(service, file_id, destination_path):
-    """Download a file from Google Drive using its file ID."""
+import gdown
+
+def download_file_gdown(file_id, destination_path):
+    """
+    Download a file from Google Drive using gdown.
+
+    :param file_id: ID of the file to download.
+    :param destination_path: Path where the file should be saved.
+    """
     try:
-        # Request the file from Google Drive
+        # Construct the gdown download URL
+        url = f"https://drive.google.com/uc?id={file_id}"
+        gdown.download(url, str(destination_path), quiet=False)
+        print(f"File downloaded successfully to {destination_path}.")
+    except Exception as error:
+        print(f"An error occurred while downloading the file: {error}")
+        raise
+
+
+def download_file(service, file_id, destination_path):
+    """
+    Download a file from Google Drive and save it to the specified destination.
+    
+    :param service: Authenticated Google Drive API service.
+    :param file_id: ID of the file to download.
+    :param destination_path: Path where the file should be saved.
+    """
+    try:
         request = service.files().get_media(fileId=file_id)
-        
-        # Create a file handle to save the file
-        fh = io.FileIO(destination_path, 'wb')
-        
-        # Download the file to the specified destination
-        downloader = MediaIoBaseDownload(fh, request)
-        done = False
-        while done is False:
-            status, done = downloader.next_chunk()
-            print(f"Download {int(status.progress() * 100)}%.")
-        
-        print(f"File downloaded to {destination_path}.")
-    except Exception as e:
-        print(f"An error occurred while downloading the file: {e}")
+        with open(destination_path, "wb") as file:
+            downloader = MediaIoBaseDownload(file, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+                print(f"Download progress: {int(status.progress() * 100)}%")
+    except HttpError as error:
+        print(f"An error occurred while downloading the file: {error}")
