@@ -1,35 +1,34 @@
 import pandas as pd
-import cryptpandas as crp
 from time import time
 import re
+import cryptpandas as crp
 from pathlib import Path
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-import gdown
 import os
 from dotenv import load_dotenv
+from drive import authenticate_google_drive, find_file_in_folder, download_file, FOLDER_ID
 
 load_dotenv() # Load environment variables from .env files - will share with you dylan
 
 # Load the encrypted file to df
 def load_encrypted() -> pd.DataFrame:
-
-
     # Get the path and password from slack
     file_name, password = get_file_name_and_password()
     path = Path('decrypted_data') / file_name
     
     # get the file on google drive
+    # Step 1: Authenticate and create the service
+    service = authenticate_google_drive()
     
-    url = "https://drive.google.com/drive/folders/1ElVOO_4Plr24xEOmdqsINmIRM_y4M3_n"
+    # Step 2: Search for the file in the folder
+    file_id = find_file_in_folder(service, FOLDER_ID, file_name)
+    
+    if file_id:
+        # Step 3: Download the file to memory if found
+        fh = download_file(service, file_id, path)
 
-    # Load the CSV file
     return crp.read_encrypted(path=path, password=password)
-
-
-    
-# get password from slack
-
 
 def get_file_name_and_password():
     # Replace with your OAuth token
